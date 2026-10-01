@@ -1,7 +1,7 @@
 /**
  * Ultrafast from the command line, for use from any repo:
  *
- *   deno run -A jsr:@syncretic/jev-ultrafast/cli --url URL --goal 'A narrow goal'
+ *   deno run -A jsr:@syncretic/jev-ultrafast-typescript/cli --url URL --goal 'A narrow goal'
  *
  * Reads keys from ./.env (existing variables win). Exits 0 when the run is done, 1 when it is blocked or fails.
  */

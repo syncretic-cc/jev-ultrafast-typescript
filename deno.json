@@ -1,5 +1,5 @@
 {
-  "name": "@syncretic/jev-ultrafast",
+  "name": "@syncretic/jev-ultrafast-typescript",
   "version": "0.2.0",
   "license": "MIT",
   "exports": { ".": "./src/mod.ts", "./cli": "./src/cli.ts" },
