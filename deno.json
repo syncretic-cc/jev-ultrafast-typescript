@@ -1,8 +1,8 @@
 {
   "name": "@syncretic/jev-ultrafast",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
-  "exports": "./src/mod.ts",
+  "exports": { ".": "./src/mod.ts", "./cli": "./src/cli.ts" },
   "imports": {
     "@typesafe-ai/sdk": "npm:@typesafe-ai/sdk@0.6.0",
     "@resvg/resvg-js": "npm:@resvg/resvg-js@^2.6.2",
