@@ -10,7 +10,7 @@ import { choice, fakeFetch, page } from "./_helpers.ts";
 type Json = Record<string, any>;
 
 const TYPESAFE = { TYPESAFE_API_KEY: "test" };
-const TEXT = { TEXT_MODEL_API_KEY: "test" };
+const TEXT = { TEXT_MODEL_API_KEY: "test", USE_OPENAI: "false" };
 
 /** Drive fake timers until `promise` settles so retry backoff costs no real time. */
 async function settleWithFakeTime<T>(time: FakeTime, promise: Promise<T>): Promise<T> {
@@ -209,7 +209,7 @@ Deno.test("quoted task text still uses the LLM", async () => {
 Deno.test("missing text credential stops before guessing", async () => {
   const fetch = fakeFetch(() => textReply('{"text":"Zurich"}'));
   await assertRejects(
-    () => fieldText({ goal: 'Enter "Zurich"' } as never, { fetch, env: {} }),
+    () => fieldText({ goal: 'Enter "Zurich"' } as never, { fetch, env: { USE_OPENAI: "false" } }),
     UltrafastError,
     "TEXT_MODEL_API_KEY",
   );
@@ -240,6 +240,12 @@ Deno.test("OpenAI mode sends Chat Completions fields with the OpenAI key", async
   assertEquals(body.reasoning_effort, "none");
   assertEquals(body.response_format, { type: "json_object" });
   assert(!("max_tokens" in body) && !("reasoning" in body) && !("thinking" in body));
+});
+
+Deno.test("OpenAI is the default when USE_OPENAI is unset", async () => {
+  const fetch = fakeFetch(() => textReply('{"text":"Zurich"}'));
+  await fieldText({ goal: "Fly" }, { fetch, env: { OPENAI_API_KEY: "k", TEXT_MODEL_API_KEY: "other" } });
+  assertEquals(fetch.calls[0].url, "https://api.openai.com/v1/chat/completions");
 });
 
 Deno.test("OpenAI mode honours model and effort overrides", async () => {

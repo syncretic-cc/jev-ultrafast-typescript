@@ -56,7 +56,7 @@ There are no site-specific action scripts or prepared field strings in the polic
 git clone https://github.com/syncretic-cc/jev-ultrafast-typescript.git
 cd jev-ultrafast-typescript
 cp .env.example .env
-# Add TYPESAFE_API_KEY and TEXT_MODEL_API_KEY (or USE_OPENAI=true and OPENAI_API_KEY).
+# Add TYPESAFE_API_KEY and OPENAI_API_KEY.
 deno task demo
 ```
 
@@ -75,11 +75,29 @@ Ultrafast talks to Chrome through a small built-in DevTools Protocol client; the
 
 Empty variables count as unset. Ultrafast opens its own background tab and closes it at the end; that tab shares the connected Chrome profile, including its cookies and signed-in accounts.
 
-`TEXT_MODEL_API_KEY` is an OpenRouter key in the example configuration. The current demo uses `inception/mercury-2.5` with reasoning disabled. Gemini, GLM, and DeepSeek can also use the OpenAI-compatible text helper; configure the appropriate model, endpoint, and reasoning setting.
+By default the text helper calls OpenAI: `https://api.openai.com/v1/chat/completions` with `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-6-luna`) and `OPENAI_REASONING_EFFORT` (default `none`). TypeSafe still chooses every action.
 
-To use OpenAI directly, set `USE_OPENAI=true` and `OPENAI_API_KEY`. TYPE_TEXT then calls `https://api.openai.com/v1/chat/completions` with `OPENAI_MODEL` (default `gpt-6-luna`) and `OPENAI_REASONING_EFFORT` (default `none`), and ignores the `TEXT_MODEL_*` settings. TypeSafe still chooses every action.
+Set `USE_OPENAI=false` to use an OpenAI-compatible endpoint configured by `TEXT_MODEL_API_KEY`, `TEXT_MODEL_BASE_URL`, `TEXT_MODEL` and `TEXT_MODEL_REASONING`. The recorded demo used this path with OpenRouter and `inception/mercury-2.5`, reasoning disabled; Gemini, GLM, and DeepSeek work the same way.
 
 Password fields are hidden unless a password is supplied with the `password` Agent option or `JEV_PASSWORD`. Ultrafast then lists them with a masked value and types the password itself: it is never sent to TypeSafe or the text helper and appears as `••••••••` in history and the inspector. Keep the password out of the goal.
+
+## Use it from another repo
+
+Ultrafast is published to [JSR](https://jsr.io/@syncretic/jev-ultrafast). Add one pinned script to the consuming repo's `package.json`:
+
+```json
+"scripts": {
+  "browse": "deno run -A jsr:@syncretic/jev-ultrafast@0.2/cli"
+}
+```
+
+Put `TYPESAFE_API_KEY`, `OPENAI_API_KEY` and, for logins, `JEV_PASSWORD` in that repo's ignored `.env`, start a debug Chrome, then run:
+
+```bash
+BU_CDP_URL=http://127.0.0.1:9223 npm run browse -- --url http://localhost:3100 --goal "Sign in with email testing@example.com and the configured password"
+```
+
+It prints one line per step and exits 0 when the run is done, 1 when it is blocked. `--json` prints the final run instead. Agents can call the same command.
 
 ## Use the library
 
