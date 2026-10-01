@@ -69,7 +69,7 @@ async function main(): Promise<void> {
   }
   console.log(`Automation Chrome on ${url}`);
 
-  const demo = new Deno.Command(Deno.execPath(), { args: ["task", "demo"], env: { BU_CDP_URL: url } }).spawn();
+  const demo = new Deno.Command(Deno.execPath(), { args: ["task", "demo"], env: { ULTRAFAST_CDP_URL: url } }).spawn();
   // Open the inspector in the automation Chrome once the demo server answers.
   const demoUrl = `http://127.0.0.1:${Deno.env.get("TYPESAFE_DEMO_PORT") || "8766"}/`;
   const deadline = performance.now() + 15_000;

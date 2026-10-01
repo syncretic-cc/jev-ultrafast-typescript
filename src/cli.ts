@@ -24,10 +24,10 @@ options:
   --json       Print the final run as JSON instead of one line per step.
 
 environment (also read from ./.env):
-  TYPESAFE_API_KEY  Required. Jev chooses every action.
-  OPENAI_API_KEY    Required for typing text (USE_OPENAI=false switches to TEXT_MODEL_*).
-  JEV_PASSWORD      Optional. Typed into password fields; keep it out of the goal.
-  BU_CDP_URL        Optional. Chrome debug endpoint, e.g. http://127.0.0.1:9223.`;
+  TYPESAFE_API_KEY   Required. Jev chooses every action.
+  OPENAI_API_KEY     Required for typing text (USE_OPENAI=false switches to TEXT_MODEL_*).
+  JEV_PASSWORD       Optional. Typed into password fields; keep it out of the goal.
+  ULTRAFAST_CDP_URL  Optional. Chrome debug endpoint, e.g. http://127.0.0.1:9223.`;
 
 /** Parse arguments, run the agent, and return the process exit code. */
 export async function main(argv: readonly string[]): Promise<number> {

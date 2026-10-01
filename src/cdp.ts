@@ -352,14 +352,14 @@ async function wsFromActivePort(httpUrl: string, dirs: string[]): Promise<string
 }
 
 /**
- * Find Chrome's browser WebSocket URL: BU_CDP_WS, then BU_CDP_URL, then a profile's DevToolsActivePort,
+ * Find Chrome's browser WebSocket URL: ULTRAFAST_CDP_WS, then ULTRAFAST_CDP_URL, then a profile's DevToolsActivePort,
  * then ports 9222/9223.
  */
 export async function resolveWsUrl(env?: Env): Promise<string> {
-  const direct = readEnv(env, "BU_CDP_WS");
+  const direct = readEnv(env, "ULTRAFAST_CDP_WS");
   if (direct) return direct;
   const dirs = profileDirs(Deno.build.os, env);
-  const httpUrl = readEnv(env, "BU_CDP_URL");
+  const httpUrl = readEnv(env, "ULTRAFAST_CDP_URL");
   if (httpUrl) {
     const base = httpUrl.replace(/\/+$/, "");
     const deadline = performance.now() + 30_000;
@@ -381,7 +381,7 @@ export async function resolveWsUrl(env?: Env): Promise<string> {
       await sleep(1000);
     }
     throw new CdpError(
-      `BU_CDP_URL=${httpUrl} unreachable after 30s: ${lastError} -- is the dedicated automation Chrome running?`,
+      `ULTRAFAST_CDP_URL=${httpUrl} unreachable after 30s: ${lastError} -- is the dedicated automation Chrome running?`,
     );
   }
   const deadline = performance.now() + 3000;
@@ -413,6 +413,6 @@ export async function resolveWsUrl(env?: Env): Promise<string> {
   throw new CdpError(
     `DevToolsActivePort not found in ${
       JSON.stringify(dirs)
-    } — enable chrome://inspect/#remote-debugging, or set BU_CDP_WS / BU_CDP_URL`,
+    } — enable chrome://inspect/#remote-debugging, or set ULTRAFAST_CDP_WS / ULTRAFAST_CDP_URL`,
   );
 }

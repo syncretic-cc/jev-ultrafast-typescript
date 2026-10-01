@@ -1,6 +1,6 @@
 # Ultrafast
 
-A TypeScript/Deno port of the original [jev-ultrafast](https://github.com/browser-use/jev-ultrafast), maintained by Syncretic.
+A TypeScript/Deno port of the original jev-ultrafast, maintained by Syncretic.
 
 Ultrafast is a browser agent that takes one natural-language goal and works through a real page until the goal is met or it's stuck. We use it to drive our own apps from scripts, tests and coding agents without writing selectors.
 
@@ -40,7 +40,7 @@ deno task demo:chrome
 From this repo:
 
 ```bash
-BU_CDP_URL=http://127.0.0.1:9223 deno task example --url http://localhost:3100 --goal "Open the settings page"
+ULTRAFAST_CDP_URL=http://127.0.0.1:9223 deno task example --url http://localhost:3100 --goal "Open the settings page"
 ```
 
 From another repo, add a pinned script that runs the published CLI:
@@ -52,7 +52,7 @@ From another repo, add a pinned script that runs the published CLI:
 ```
 
 ```bash
-BU_CDP_URL=http://127.0.0.1:9223 npm run browse -- --url http://localhost:3100 --goal "Sign in with email testing@example.com and the configured password"
+ULTRAFAST_CDP_URL=http://127.0.0.1:9223 npm run browse -- --url http://localhost:3100 --goal "Sign in with email testing@example.com and the configured password"
 ```
 
 The CLI reads `./.env`, prints one line per step, and exits 0 when the run is done or 1 when it's blocked. `--json` prints the whole run as JSON. Start the debug Chrome first; on macOS:
@@ -81,7 +81,7 @@ Set these in `.env`. Variables already set in the environment take precedence.
 | `OPENAI_MODEL`, `OPENAI_REASONING_EFFORT` | Optional. Default `gpt-6-luna` and `none`. |
 | `USE_OPENAI=false` | Use an OpenAI-compatible endpoint instead, set by `TEXT_MODEL_API_KEY`, `TEXT_MODEL_BASE_URL`, `TEXT_MODEL` and `TEXT_MODEL_REASONING`. |
 | `JEV_PASSWORD` | Optional. Password for password fields. Keep it out of the goal. |
-| `BU_CDP_URL` / `BU_CDP_WS` | Optional. Which Chrome to connect to. Without them, Ultrafast looks for a Chrome with remote debugging enabled. |
+| `ULTRAFAST_CDP_URL` / `ULTRAFAST_CDP_WS` | Optional. Which Chrome to connect to. Without them, Ultrafast looks for a Chrome with remote debugging enabled. |
 
 Password fields are hidden unless `JEV_PASSWORD` or the `password` Agent option is set. When one is set, the field is shown with a masked value and code types the password; history and the inspector show `••••••••`.
 

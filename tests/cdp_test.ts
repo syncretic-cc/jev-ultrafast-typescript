@@ -29,10 +29,10 @@ Deno.test("profileDirs lists the Windows profiles under LOCALAPPDATA", () => {
   assert(fallback[0].endsWith("/home/u/AppData/Local/Google/Chrome/User Data"), fallback[0]);
 });
 
-Deno.test("resolveWsUrl honours BU_CDP_WS before any discovery", async () => {
+Deno.test("resolveWsUrl honours ULTRAFAST_CDP_WS before any discovery", async () => {
   const ws = "ws://127.0.0.1:9333/devtools/browser/abc";
-  // BU_CDP_URL points nowhere; reaching it would need --allow-net and fail the test.
-  assertEquals(await resolveWsUrl({ BU_CDP_WS: ws, BU_CDP_URL: "http://127.0.0.1:1" }), ws);
+  // ULTRAFAST_CDP_URL points nowhere; reaching it would need --allow-net and fail the test.
+  assertEquals(await resolveWsUrl({ ULTRAFAST_CDP_WS: ws, ULTRAFAST_CDP_URL: "http://127.0.0.1:1" }), ws);
 });
 
 /** A stand-in for CdpConnection that only tracks closing. */
