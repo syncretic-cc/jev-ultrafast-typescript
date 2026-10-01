@@ -298,9 +298,9 @@ export function fieldContext(
   };
 }
 
-/** True when `USE_OPENAI` switches the text helper to OpenAI's own Chat Completions API. */
+/** The text helper uses OpenAI's own Chat Completions API unless `USE_OPENAI` turns it off. */
 const useOpenAI = (opts: ModelOptions): boolean =>
-  ["1", "true", "yes", "on"].includes((readEnv(opts, "USE_OPENAI") ?? "").trim().toLowerCase());
+  !["0", "false", "no", "off"].includes((readEnv(opts, "USE_OPENAI") ?? "").trim().toLowerCase());
 
 /** The text helper's model name, for display. */
 export const textModel = (opts: ModelOptions = {}): string =>
