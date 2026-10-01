@@ -14,6 +14,7 @@
     "@std/testing": "jsr:@std/testing@^1"
   },
   "tasks": {
+    "demo:chrome": "deno run --allow-run --allow-read --allow-write=artifacts --allow-env=CHROME_PATH,TYPESAFE_DEMO_PORT --allow-net=127.0.0.1 scripts/demo_chrome.ts",
     "demo": "deno run --allow-net --allow-read --allow-env --allow-write=artifacts src/demo.ts",
     "example": "deno run --env-file=.env --allow-net --allow-read --allow-env examples/run.ts",
     "flights": "deno run --env-file=.env --allow-net --allow-read --allow-env --allow-write=artifacts examples/flights.ts",
