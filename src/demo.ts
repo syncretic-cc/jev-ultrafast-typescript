@@ -85,13 +85,6 @@ export async function main(): Promise<void> {
       while (busy) await busy;
       return send(200, JSON.stringify(responseState()));
     }
-    if (path === "/demo.mp4" && import.meta.url.startsWith("file:")) {
-      try {
-        return send(200, await Deno.readFile(new URL("../docs/demo.mp4", import.meta.url)), "video/mp4");
-      } catch {
-        // Missing or unreadable video: fall through to 404.
-      }
-    }
     const file = STATIC[path];
     if (!file) return send(404, "Not found", "text/plain");
     const [name, mime] = file;
