@@ -67,7 +67,7 @@ Open **http://127.0.0.1:8766** and click **Start demo → Run automatically**. T
 Jev talks to Chrome through a small built-in DevTools Protocol client; there is nothing else to install. Its discovery order follows [Browser Harness](https://github.com/browser-use/browser-harness):
 
 1. `BU_CDP_WS`: a full `ws://…/devtools/browser/…` URL.
-2. `BU_CDP_URL`: an HTTP endpoint such as `http://127.0.0.1:9222`, for a dedicated automation Chrome started with `--remote-debugging-port=9222 --user-data-dir=<separate-profile>`.
+2. `BU_CDP_URL`: an HTTP endpoint such as `http://127.0.0.1:9222`, for a dedicated automation Chrome started with `--remote-debugging-port=9222 --user-data-dir=<separate-profile>`. `deno task demo:chrome` starts one on port 9223 with a profile under `artifacts/` and runs the demo against it.
 3. Your everyday Chrome: open `chrome://inspect/#remote-debugging` and allow remote debugging. Jev finds the `DevToolsActivePort` file in the usual Chrome, Chromium, Edge, and Brave profile folders. Accept Chrome's *Allow remote debugging* prompt when it appears.
 4. Ports 9222 and 9223 on 127.0.0.1.
 
