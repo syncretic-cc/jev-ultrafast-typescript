@@ -3,7 +3,7 @@
 import { decodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { Browser } from "./browser.ts";
-import { JevError, StalePage } from "./errors.ts";
+import { StalePage, UltrafastError } from "./errors.ts";
 import { canonicalJson } from "./json.ts";
 import { actionSpace, choose, fieldContext, fieldText } from "./model.ts";
 import { MAX_STEPS } from "./questions.ts";
@@ -70,7 +70,7 @@ function readPassword(): string | null {
   }
 }
 
-/** Jev chooses an observed action. Code owns execution. */
+/** The Ultrafast agent: Jev chooses an observed action, code owns execution. */
 export class Agent implements AsyncDisposable {
   /** The browser this agent drives. Cast to {@link Browser} for CDP-specific members. */
   readonly browser: BrowserLike;
@@ -114,7 +114,7 @@ export class Agent implements AsyncDisposable {
   /** Open `url`, observe it, and return an agent for one natural-language goal. */
   static async create(url: string, goals: string | readonly string[], opts: AgentOptions = {}): Promise<Agent> {
     const task = typeof goals === "string" ? goals.trim() : goals.join("\n").trim();
-    if (!task) throw new JevError("Supply a task");
+    if (!task) throw new UltrafastError("Supply a task");
     const browser = opts.openBrowser ? await opts.openBrowser(url) : await Browser.open(url, { cdp: opts.cdp });
     const screenshots = Boolean(opts.screenshots) || Boolean(opts.recordDir);
     try {
@@ -161,9 +161,9 @@ export class Agent implements AsyncDisposable {
       if (!(await browser.fresh(state.page))) state.page = await browser.observe({ screenshot: this.screenshots });
       state.decision = null;
       if (state.status === "done" || state.status === "blocked") {
-        throw new JevError("This run has stopped. Start a fresh demo.");
+        throw new UltrafastError("This run has stopped. Start a fresh demo.");
       }
-      if (state.decisions.length >= MAX_STEPS * 2) throw new JevError("Reached the demo's model-call budget");
+      if (state.decisions.length >= MAX_STEPS * 2) throw new UltrafastError("Reached the demo's model-call budget");
       const page = state.page;
       // Without a password, password fields are not offered: no model may supply one.
       const offered = this.#password ? page : { ...page, actions: page.actions.filter((a) => !("secret" in a)) };
@@ -174,7 +174,9 @@ export class Agent implements AsyncDisposable {
     } else if (name === "act") {
       const decision = state.decision;
       const page = state.page;
-      if (!decision || body.fingerprint !== page.fingerprint) throw new JevError("Observe and choose before acting");
+      if (!decision || body.fingerprint !== page.fingerprint) {
+        throw new UltrafastError("Observe and choose before acting");
+      }
       // Consume once, before any mutation or model call. A retry cannot double-click.
       state.decision = null;
       const selected = decision.choice;
@@ -189,16 +191,16 @@ export class Agent implements AsyncDisposable {
         return this.snapshot();
       }
       const action = page.actions.find((a) => a.id === selected);
-      if (!action) throw new JevError("Decision does not match an observed action; no action executed.");
+      if (!action) throw new UltrafastError("Decision does not match an observed action; no action executed.");
       if (state.history.length >= MAX_STEPS) {
         state.status = "blocked";
-        throw new JevError(`Stopped at the ${MAX_STEPS}-action demo budget`);
+        throw new UltrafastError(`Stopped at the ${MAX_STEPS}-action demo budget`);
       }
       let text: string | null = null;
       let helper: TextHelperInfo | null = null;
       const secret = action.kind === "fill" && Boolean(action.secret);
       if (secret) {
-        if (!this.#password) throw new JevError("Password fields need JEV_PASSWORD; nothing typed.");
+        if (!this.#password) throw new UltrafastError("Password fields need JEV_PASSWORD; nothing typed.");
         text = this.#password;
       } else if (action.kind === "fill") {
         if (!(await browser.fresh(page))) throw new StalePage("Page changed before text generation. Choose again.");
@@ -255,7 +257,7 @@ export class Agent implements AsyncDisposable {
         ? "blocked"
         : "ready";
     } else {
-      throw new JevError("Unknown command");
+      throw new UltrafastError("Unknown command");
     }
     return this.snapshot();
   }

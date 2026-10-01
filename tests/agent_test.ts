@@ -1,7 +1,7 @@
 // Offline contracts for the agent loop: consumed decisions, text reuse, no-progress stops. No browser, no model.
 import { assert, assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
-import { Agent, fingerprint, JevError, StalePage } from "../src/mod.ts";
+import { Agent, fingerprint, StalePage, UltrafastError } from "../src/mod.ts";
 import { MASK } from "../src/agent.ts";
 import type { Action, BrowserLike, PageState, TextHelperInfo } from "../src/mod.ts";
 import { decision, page } from "./_helpers.ts";
@@ -149,7 +149,7 @@ Deno.test("an empty task is refused before a browser opens", async () => {
   const openBrowser = spy((_url: string): Promise<BrowserLike> => Promise.reject(new Error("must not open")));
   await assertRejects(
     () => Agent.create("https://example.test/", ["  ", ""], { openBrowser }),
-    JevError,
+    UltrafastError,
     "Supply a task",
   );
   assertSpyCalls(openBrowser, 0);

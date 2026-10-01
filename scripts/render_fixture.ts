@@ -56,7 +56,7 @@ async function main(): Promise<void> {
       image(frame, 60, 105),
       text(60, 34, "BROWSER USE × TYPESAFE", mono, 23, "#283c2c"),
       text(945, 38, `${pyFixed(t / 1000, 2)}s / 1×`, mono, 17, "#487645"),
-      text(60, 909, `Jev Ultrafast     ${step}/5 browser actions     Live API calls`, mono, 17, "#64745c"),
+      text(60, 909, `Ultrafast     ${step}/5 browser actions     Live API calls`, mono, 17, "#64745c"),
     ]);
     await Deno.writeFile(join(folder, `${String(index).padStart(4, "0")}.png`), render(svg));
   }

@@ -1,6 +1,6 @@
 <img src="docs/banner.svg" alt="Jev Ultrafast · Browser Use × TypeSafe" width="100%" />
 
-# Jev Ultrafast ⚡
+# Ultrafast ⚡
 
 **A browser agent with a dynamic, indexed action space.**
 
@@ -10,7 +10,7 @@ Give it one goal. [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks 
 
 Measured with the prior Python implementation; see [Evidence and limits](#evidence-and-limits).
 
-**Concepts.** *Jev* is TypeSafe's choice model: it only picks an operation and a target from the offered options, never strings. *Jev Ultrafast* is this agent around it. The *text helper* is the small LLM that writes TYPE_TEXT values. A *secret* is a password supplied by code, typed directly and never shown to any model.
+**Concepts.** *Jev* is TypeSafe's choice model: it only picks an operation and a target from the offered options, never strings. *Ultrafast* is the browser agent around it (this repo, `jev-ultrafast`); its runs, steps and errors are Ultrafast's, not Jev's. The *text helper* is the small LLM that writes TYPE_TEXT values. A *secret* is a password supplied by code, typed directly and never shown to any model.
 
 <a href="docs/demo.mp4"><img src="docs/demo.gif" alt="A real Google Flights search at 1× speed, with generated city names and dynamic operation/target decisions" width="100%" /></a>
 
@@ -66,20 +66,20 @@ Open **http://127.0.0.1:8766** and click **Start demo → Run automatically**. T
 
 ### Connect Chrome
 
-Jev talks to Chrome through a small built-in DevTools Protocol client; there is nothing else to install. Its discovery order follows [Browser Harness](https://github.com/browser-use/browser-harness):
+Ultrafast talks to Chrome through a small built-in DevTools Protocol client; there is nothing else to install. Its discovery order follows [Browser Harness](https://github.com/browser-use/browser-harness):
 
 1. `BU_CDP_WS`: a full `ws://…/devtools/browser/…` URL.
 2. `BU_CDP_URL`: an HTTP endpoint such as `http://127.0.0.1:9222`, for a dedicated automation Chrome started with `--remote-debugging-port=9222 --user-data-dir=<separate-profile>`. `deno task demo:chrome` starts one on port 9223 with a profile under `artifacts/` and runs the demo against it.
-3. Your everyday Chrome: open `chrome://inspect/#remote-debugging` and allow remote debugging. Jev finds the `DevToolsActivePort` file in the usual Chrome, Chromium, Edge, and Brave profile folders. Accept Chrome's *Allow remote debugging* prompt when it appears.
+3. Your everyday Chrome: open `chrome://inspect/#remote-debugging` and allow remote debugging. Ultrafast finds the `DevToolsActivePort` file in the usual Chrome, Chromium, Edge, and Brave profile folders. Accept Chrome's *Allow remote debugging* prompt when it appears.
 4. Ports 9222 and 9223 on 127.0.0.1.
 
-Empty variables count as unset. Jev opens its own background tab and closes it at the end; that tab shares the connected Chrome profile, including its cookies and signed-in accounts.
+Empty variables count as unset. Ultrafast opens its own background tab and closes it at the end; that tab shares the connected Chrome profile, including its cookies and signed-in accounts.
 
 `TEXT_MODEL_API_KEY` is an OpenRouter key in the example configuration. The current demo uses `inception/mercury-2.5` with reasoning disabled. Gemini, GLM, and DeepSeek can also use the OpenAI-compatible text helper; configure the appropriate model, endpoint, and reasoning setting.
 
 To use OpenAI directly, set `USE_OPENAI=true` and `OPENAI_API_KEY`. TYPE_TEXT then calls `https://api.openai.com/v1/chat/completions` with `OPENAI_MODEL` (default `gpt-6-luna`) and `OPENAI_REASONING_EFFORT` (default `none`), and ignores the `TEXT_MODEL_*` settings. TypeSafe still chooses every action.
 
-Password fields are hidden unless a password is supplied with the `password` Agent option or `JEV_PASSWORD`. Jev Ultrafast then lists them with a masked value and types the password itself: it is never sent to TypeSafe or the text helper and appears as `••••••••` in history and the inspector. Keep the password out of the goal.
+Password fields are hidden unless a password is supplied with the `password` Agent option or `JEV_PASSWORD`. Ultrafast then lists them with a masked value and types the password itself: it is never sent to TypeSafe or the text helper and appears as `••••••••` in history and the inspector. Keep the password out of the goal.
 
 ## Use the library
 

@@ -1,7 +1,7 @@
 /** Observed actions through one direct CDP session. Code owns execution; the model never emits selectors. */
 
 import { acquireCdp, type CdpLease } from "./cdp.ts";
-import { CdpError, CdpTimeout, JevError, StalePage } from "./errors.ts";
+import { CdpError, CdpTimeout, StalePage, UltrafastError } from "./errors.ts";
 import { canonicalJson, isTruthy, jsonEqual } from "./json.ts";
 import type {
   Action,
@@ -23,7 +23,7 @@ export const MARKER: string = `(() => { const state=${READ_STATE}; return state?
 
 // Read-only settle wait after input. Copied verbatim from the Python original.
 const AFTER_INPUT = String.raw`(action => new Promise(resolve => {
-                      const field=window.__jevFast?.nodes.get(action.node);
+                      const field=window.__ultrafast?.nodes.get(action.node);
                       const autocomplete=action.kind==='fill' && field?.getAttribute('role')==='combobox';
                       let frames=0, stopped=false;
                       const finish=()=>{stopped=true;resolve()};
@@ -46,7 +46,7 @@ const AFTER_INPUT = String.raw`(action => new Promise(resolve => {
 
 // Code-owned node IDs refer to actual observed elements, never model-generated selectors.
 const RESOLVE_TARGET = String.raw`(action => {
-              const e=window.__jevFast?.nodes.get(action.node);
+              const e=window.__ultrafast?.nodes.get(action.node);
               if (!e?.isConnected || e.matches(':disabled') || e.closest('[aria-disabled="true"],[inert]') ||
                   !e.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})) return null;
               if (action.kind==='fill' && (e.readOnly || e.getAttribute('aria-readonly')==='true')) return null;
@@ -85,7 +85,7 @@ export const browserOperation: BrowserOperation = async function browserOperatio
     const result = await call("Runtime.evaluate", { expression, returnByValue: true });
     if (isTruthy(result.exceptionDetails)) {
       if (request.operation === "act" && request.action.kind === "select") {
-        throw new JevError("Dropdown execution was interrupted; inspect before retrying.");
+        throw new UltrafastError("Dropdown execution was interrupted; inspect before retrying.");
       }
       throw new StalePage("Document changed during evaluation");
     }
@@ -98,14 +98,16 @@ export const browserOperation: BrowserOperation = async function browserOperatio
     if (kind === "scroll") {
       await call("Input.dispatchMouseEvent", { type: "mouseWheel", x: 550, y: 650, deltaX: 0, deltaY: action.delta });
     } else if (kind !== "wait") {
-      if (!Number.isInteger(action.node)) throw new JevError("Invalid observed node");
+      if (!Number.isInteger(action.node)) throw new UltrafastError("Invalid observed node");
       const text = request.text;
       if (kind === "fill" && typeof text !== "string") {
-        throw new JevError("TYPE_TEXT needs generated text; nothing typed.");
+        throw new UltrafastError("TYPE_TEXT needs generated text; nothing typed.");
       }
       const target = await evaluate(RESOLVE_TARGET + JSON.stringify(action) + ")") as { x: number; y: number } | null;
       if (target === null) {
-        if (kind === "select") throw new JevError("Dropdown execution was not confirmed; inspect before retrying.");
+        if (kind === "select") {
+          throw new UltrafastError("Dropdown execution was not confirmed; inspect before retrying.");
+        }
         throw new StalePage("Target changed or is covered. Observe again.");
       }
       if (kind !== "select") {
@@ -239,7 +241,7 @@ export class Browser implements BrowserLike {
       const node = action.node;
       if (!Number.isInteger(node)) return false;
       const current = await this.evaluate(
-        "(() => { const c=window.__jevFast; " +
+        "(() => { const c=window.__ultrafast; " +
           `return c ? [c.pageKey(),c.guard(c.nodes.get(${node}))] : null; })()`,
       );
       return jsonEqual(current, [page.page_key, page.guards[String(node)] ?? null]);

@@ -1,11 +1,11 @@
-# Jev Ultrafast
+# Ultrafast
 
 Read README.md before editing. Keep the loop small: page -> indexed elements -> operation + target -> execution.
 
 Concepts (use these names consistently):
 
 - **Jev**: TypeSafe's choice model. It only picks from offered options (an operation and its target); it never writes strings.
-- **Jev Ultrafast**: this repo, the browser agent built around Jev.
+- **Ultrafast**: the browser agent in this repo (`jev-ultrafast`), built around Jev. Runs, steps, tasks and errors belong to Ultrafast; say "Jev" only for the choice itself.
 - **Text helper**: the small LLM (OpenAI-compatible, or OpenAI with `USE_OPENAI`) that writes TYPE_TEXT values from the goal.
 - **Secret**: a password supplied by code (`password` option or `JEV_PASSWORD`). Code types it into password fields; it never reaches Jev, the text helper, state, history, or logs.
 

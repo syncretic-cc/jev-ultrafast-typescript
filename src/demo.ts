@@ -1,11 +1,11 @@
-/** Loopback-only inspector for the Jev browser agent. */
+/** Loopback-only inspector for the Ultrafast browser agent. */
 
 import { encodeBase64Url } from "@std/encoding/base64url";
 import { join } from "@std/path";
 import { Agent } from "./agent.ts";
 import { acquireCdp, type CdpLease } from "./cdp.ts";
 import { loadEnvironment } from "./env.ts";
-import { JevError } from "./errors.ts";
+import { UltrafastError } from "./errors.ts";
 import { textModel } from "./model.ts";
 import { MAX_STEPS } from "./questions.ts";
 
@@ -50,9 +50,9 @@ export async function main(): Promise<void> {
   const command = async (name: string, body: Record<string, unknown>) => {
     if (name === "reset") {
       const scenario = body.scenario ?? "flights";
-      if (typeof scenario !== "string" || !SCENARIOS.has(scenario)) throw new JevError("Unknown demo scenario");
+      if (typeof scenario !== "string" || !SCENARIOS.has(scenario)) throw new UltrafastError("Unknown demo scenario");
       const goal = typeof body.goal === "string" ? body.goal.trim() : body.goal === undefined ? "" : null;
-      if (!goal || [...goal].length > 2000) throw new JevError("Enter 1–2,000 characters");
+      if (!goal || [...goal].length > 2000) throw new UltrafastError("Enter 1–2,000 characters");
       // Best effort: after a Chrome restart the old connection is dead and Browser.close() fails.
       await closeBrowser().catch(() => {});
       if (!lease || lease.cdp.closed) {
@@ -74,7 +74,7 @@ export async function main(): Promise<void> {
       agent = created;
       created.state.scenario = scenario;
     } else {
-      if (agent === null) throw new JevError("Start a demo first");
+      if (agent === null) throw new UltrafastError("Start a demo first");
       await agent.command(name, body);
     }
     return responseState();
@@ -109,22 +109,22 @@ export async function main(): Promise<void> {
     busy = new Promise((resolve) => done = resolve);
     try {
       const declared = Number(request.headers.get("Content-Length") ?? "0");
-      if (!(declared > 0 && declared < 8192)) throw new JevError("Invalid request size");
+      if (!(declared > 0 && declared < 8192)) throw new UltrafastError("Invalid request size");
       const bytes = new Uint8Array(await request.arrayBuffer());
-      if (!(bytes.length > 0 && bytes.length < 8192)) throw new JevError("Invalid request size");
+      if (!(bytes.length > 0 && bytes.length < 8192)) throw new UltrafastError("Invalid request size");
       let body: unknown;
       try {
         body = JSON.parse(new TextDecoder().decode(bytes));
       } catch {
-        throw new JevError("Request body must be JSON");
+        throw new UltrafastError("Request body must be JSON");
       }
       if (body === null || typeof body !== "object" || Array.isArray(body)) {
-        throw new JevError("Request body must be a JSON object");
+        throw new UltrafastError("Request body must be a JSON object");
       }
       const name = path.startsWith("/api/") ? path.slice("/api/".length) : path;
       return send(200, JSON.stringify(await command(name, body as Record<string, unknown>)));
     } catch (error) {
-      if (error instanceof JevError) return send(400, JSON.stringify({ error: error.message }));
+      if (error instanceof UltrafastError) return send(400, JSON.stringify({ error: error.message }));
       console.error(error);
       return send(500, JSON.stringify({ error: "Local demo failed; no automatic retry. Reset to recover." }));
     } finally {
@@ -146,7 +146,7 @@ export async function main(): Promise<void> {
       return send(500, "Internal error", "text/plain");
     }
   });
-  console.log(`Jev Ultrafast: ${origin}`);
+  console.log(`Ultrafast: ${origin}`);
 
   const stop = async () => {
     if (stopping) return;
