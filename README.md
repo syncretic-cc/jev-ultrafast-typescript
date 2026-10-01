@@ -1,18 +1,14 @@
-<img src="docs/banner.svg" alt="Jev Ultrafast · Browser Use × TypeSafe" width="100%" />
-
 # Ultrafast ⚡
 
 **A browser agent with a dynamic, indexed action space.**
 
-Give it one goal. [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks an operation and an element. A small LLM writes text only when the operation is `TYPE_TEXT`.
+Give it one goal. [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks an operation and an element. A small LLM writes text only when the operation is `TYPE_TEXT`; passwords are typed by code, never by a model.
 
 **Zürich → London on Google Flights in 7.1 seconds.** One natural-language goal, actual text generation, and loading waits included.
 
 Measured with the prior Python implementation; see [Evidence and limits](#evidence-and-limits).
 
 **Concepts.** *Jev* is TypeSafe's choice model: it only picks an operation and a target from the offered options, never strings. *Ultrafast* is the browser agent around it (this repo, `jev-ultrafast`); its runs, steps and errors are Ultrafast's, not Jev's. The *text helper* is the small LLM that writes TYPE_TEXT values. A *secret* is a password supplied by code, typed directly and never shown to any model.
-
-<a href="docs/demo.mp4"><img src="docs/demo.gif" alt="A real Google Flights search at 1× speed, with generated city names and dynamic operation/target decisions" width="100%" /></a>
 
 [Watch the MP4](docs/demo.mp4) · [Measurements](docs/performance.md) · [Read the loop](src/agent.ts)
 
@@ -83,7 +79,7 @@ Password fields are hidden unless a password is supplied with the `password` Age
 
 ## Use it from another repo
 
-Ultrafast is published to [JSR](https://jsr.io/@syncretic/jev-ultrafast). Add one pinned script to the consuming repo's `package.json`:
+Ultrafast is distributed on [JSR](https://jsr.io/@syncretic/jev-ultrafast) as `@syncretic/jev-ultrafast`. Add one pinned script to the consuming repo's `package.json`:
 
 ```json
 "scripts": {
@@ -91,7 +87,13 @@ Ultrafast is published to [JSR](https://jsr.io/@syncretic/jev-ultrafast). Add on
 }
 ```
 
-Put `TYPESAFE_API_KEY`, `OPENAI_API_KEY` and, for logins, `JEV_PASSWORD` in that repo's ignored `.env`, start a debug Chrome, then run:
+Put `TYPESAFE_API_KEY`, `OPENAI_API_KEY` and, for logins, `JEV_PASSWORD` in that repo's ignored `.env`. Start a dedicated debug Chrome (macOS shown; it uses its own profile):
+
+```bash
+open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.ultrafast-chrome"
+```
+
+Then run:
 
 ```bash
 BU_CDP_URL=http://127.0.0.1:9223 npm run browse -- --url http://localhost:3100 --goal "Sign in with email testing@example.com and the configured password"
@@ -141,13 +143,14 @@ Every executed target is resolved from an observed node. The executor rechecks p
 
 | File | Job |
 | --- | --- |
-| [agent.ts](src/agent.ts) | The complete loop and text-helper handoff |
+| [agent.ts](src/agent.ts) | The complete loop, text-helper handoff, and password secret |
 | [snapshot.js](src/snapshot.js) | Atomic DOM snapshot, indexed controls, freshness guards |
 | [browser.ts](src/browser.ts) | Tab ownership, current geometry, execution |
 | [cdp.ts](src/cdp.ts) | Chrome DevTools connection and discovery |
 | [model.ts](src/model.ts) | Dynamic operation/target heads and text generation |
 | [questions.ts](src/questions.ts) | Model instructions |
 | [demo.ts](src/demo.ts) | Local inspector |
+| [cli.ts](src/cli.ts) | Command line for other repos |
 
 ## Evidence and limits
 
