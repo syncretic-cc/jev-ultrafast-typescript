@@ -133,7 +133,7 @@ export function actionSpace(actions: readonly Action[]): ActionSpace {
       const index = String(elements.length + 1);
       indices.set(node, index);
       const element: Record<string, unknown> = {};
-      for (const k of ["role", "value", "checked", "selected", "expanded"]) {
+      for (const k of ["role", "value", "checked", "selected", "expanded", "secret"]) {
         if (k in action) element[k] = (action as unknown as Record<string, unknown>)[k];
       }
       Object.assign(element, { index, label: action.label.split(" → ")[0], operations: [] });
@@ -187,7 +187,7 @@ export async function choose(
         element: `[${index}] ${a.label}`,
         current_value: getOr(a, "current_value", getOr(a, "value", "")),
       };
-      for (const k of ["role", "checked", "selected", "expanded"]) {
+      for (const k of ["role", "checked", "selected", "expanded", "secret"]) {
         if (k in a) entry[k] = (a as unknown as Record<string, unknown>)[k];
       }
       criteria[index] = entry;

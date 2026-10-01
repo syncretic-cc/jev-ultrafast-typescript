@@ -10,6 +10,8 @@ Give it one goal. [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks 
 
 Measured with the prior Python implementation; see [Evidence and limits](#evidence-and-limits).
 
+**Concepts.** *Jev* is TypeSafe's choice model: it only picks an operation and a target from the offered options, never strings. *Jev Ultrafast* is this agent around it. The *text helper* is the small LLM that writes TYPE_TEXT values. A *secret* is a password supplied by code, typed directly and never shown to any model.
+
 <a href="docs/demo.mp4"><img src="docs/demo.gif" alt="A real Google Flights search at 1× speed, with generated city names and dynamic operation/target decisions" width="100%" /></a>
 
 [Watch the MP4](docs/demo.mp4) · [Measurements](docs/performance.md) · [Read the loop](src/agent.ts)
@@ -76,6 +78,8 @@ Empty variables count as unset. Jev opens its own background tab and closes it a
 `TEXT_MODEL_API_KEY` is an OpenRouter key in the example configuration. The current demo uses `inception/mercury-2.5` with reasoning disabled. Gemini, GLM, and DeepSeek can also use the OpenAI-compatible text helper; configure the appropriate model, endpoint, and reasoning setting.
 
 To use OpenAI directly, set `USE_OPENAI=true` and `OPENAI_API_KEY`. TYPE_TEXT then calls `https://api.openai.com/v1/chat/completions` with `OPENAI_MODEL` (default `gpt-6-luna`) and `OPENAI_REASONING_EFFORT` (default `none`), and ignores the `TEXT_MODEL_*` settings. TypeSafe still chooses every action.
+
+Password fields are hidden unless a password is supplied with the `password` Agent option or `JEV_PASSWORD`. Jev Ultrafast then lists them with a masked value and types the password itself: it is never sent to TypeSafe or the text helper and appears as `••••••••` in history and the inspector. Keep the password out of the goal.
 
 ## Use the library
 

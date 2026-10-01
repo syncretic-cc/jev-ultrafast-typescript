@@ -1,7 +1,8 @@
 // Offline contracts for the agent loop: consumed decisions, text reuse, no-progress stops. No browser, no model.
 import { assert, assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
-import { Agent, JevError, StalePage } from "../src/mod.ts";
+import { Agent, fingerprint, JevError, StalePage } from "../src/mod.ts";
+import { MASK } from "../src/agent.ts";
 import type { Action, BrowserLike, PageState, TextHelperInfo } from "../src/mod.ts";
 import { decision, page } from "./_helpers.ts";
 
@@ -165,4 +166,84 @@ Deno.test("Agent.create closes the browser when the first observation fails", as
     StalePage,
   );
   assertSpyCalls(browser.close, 1);
+});
+
+// --- password fields ----------------------------------------------------------------------------------------------
+
+/** A login form: email, password, and a Log in button that stays disabled (unobserved) until both are filled. */
+async function loginPage(email = "", password = ""): Promise<PageState> {
+  const actions: Record<string, unknown>[] = [
+    { id: "e1", kind: "fill", label: "Email", role: "textbox", value: email, node: 1 },
+    { id: "e2", kind: "click", label: "Open Email", role: "textbox", value: email, node: 1 },
+    { id: "e3", kind: "fill", label: "Password", role: "textbox", value: password, node: 2, secret: true },
+    { id: "e4", kind: "click", label: "Open Password", role: "textbox", value: password, node: 2, secret: true },
+  ];
+  if (email && password) actions.push({ id: "e5", kind: "click", label: "Log in", role: "button", value: "", node: 3 });
+  actions.push({ id: "wait", kind: "wait", label: "Wait" });
+  const state = { ...(await page()), url: "https://app.test/login", title: "Log in", text: "Log in", actions };
+  return { ...state, fingerprint: await fingerprint(state as unknown as PageState) } as unknown as PageState;
+}
+
+const SECRET = "testpassword123";
+
+Deno.test("without a password, password fields are never offered to the model", async () => {
+  const p = await loginPage();
+  const offered: string[][] = [];
+  const choose = (state: PageState) => {
+    offered.push(state.actions.map((a) => a.id));
+    return Promise.resolve(decision("BLOCKED"));
+  };
+  // deno-lint-ignore no-explicit-any
+  const agent = new Agent(new FakeBrowser(p), "Sign in", p, { env: {}, model: { choose: choose as any } });
+  await agent.command("predict");
+  assertEquals(offered, [["e1", "e2", "wait"]]);
+});
+
+Deno.test("a password field gets the configured password without a model call, masked everywhere", async () => {
+  const p = await loginPage("testing@syncretic.cc");
+  const browser = new FakeBrowser(p);
+  const fieldText = spy(() => Promise.reject(new Error("the text model must not see a password field")));
+  const agent = new Agent(browser, "Sign in", p, {
+    env: { JEV_PASSWORD: SECRET },
+    // deno-lint-ignore no-explicit-any
+    model: { fieldText: fieldText as any },
+  });
+  agent.state.decision = decision("e3");
+  agent.state.status = "predicted";
+  browser.observeImpl = () => p;
+  await act(agent);
+  assertSpyCalls(fieldText, 0);
+  assertEquals(browser.act.calls[0].args[2], SECRET);
+  assertEquals(agent.state.history[0].text, MASK);
+  assertEquals(agent.state.text_calls, []);
+  assert(!JSON.stringify(agent.snapshot()).includes(SECRET));
+});
+
+Deno.test("login: email, then password, then the Log in button that appears once both are filled", async () => {
+  const pages = [await loginPage(), await loginPage("testing@syncretic.cc"), await loginPage("x", MASK)];
+  const browser = new FakeBrowser(pages[0]);
+  browser.observeImpl = () => pages[Math.min(browser.act.calls.length, 2)];
+  const picks = ["e1", "e3", "e5", "DONE"];
+  const seen: string[][] = [];
+  const choose = (state: PageState) => {
+    seen.push(state.actions.map((a) => a.id));
+    return Promise.resolve(decision(picks[seen.length - 1]));
+  };
+  const fieldText = () => Promise.resolve(["testing@syncretic.cc", { model: "test", latency_ms: 1 }]);
+  const agent = new Agent(browser, "Sign in with email testing@syncretic.cc", pages[0], {
+    password: SECRET,
+    env: {},
+    // deno-lint-ignore no-explicit-any
+    model: { choose: choose as any, fieldText: fieldText as any },
+  });
+  for await (const _ of agent.run());
+  assertEquals(agent.state.status, "done");
+  assertEquals(seen[2].includes("e5"), true);
+  assertEquals(browser.act.calls.map((c) => [c.args[0].id, c.args[2]]), [
+    ["e1", "testing@syncretic.cc"],
+    ["e3", SECRET],
+    ["e5", null],
+  ]);
+  assertEquals(agent.state.history.map((h) => h.text), ["testing@syncretic.cc", MASK, null]);
+  assert(!JSON.stringify(agent.snapshot()).includes(SECRET));
 });

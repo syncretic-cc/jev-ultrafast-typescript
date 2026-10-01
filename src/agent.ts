@@ -36,6 +36,11 @@ export interface AgentInit {
   env?: Env;
   /** Model function overrides. */
   model?: Partial<ModelFns>;
+  /**
+   * Password typed into password fields, instead of `JEV_PASSWORD` from the environment. Code types it directly:
+   * it never reaches a model, the state, the inspector or the history. Without one, password fields are not offered.
+   */
+  password?: string;
 }
 
 /** Options for {@link Agent.create}. */
@@ -46,11 +51,23 @@ export interface AgentOptions extends AgentInit {
   openBrowser?: (url: string) => Promise<BrowserLike>;
 }
 
+/** What the history records instead of a typed password. */
+export const MASK = "••••••••";
+
 /** Generated text awaiting execution, keyed by the canonical JSON of its entire helper input. */
 export interface PendingText {
   key: string;
   text: string;
   helper: TextHelperInfo;
+}
+
+/** `JEV_PASSWORD`, or null when it is unset or env access is not granted. */
+function readPassword(): string | null {
+  try {
+    return Deno.env.get("JEV_PASSWORD") ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Jev chooses an observed action. Code owns execution. */
@@ -67,6 +84,7 @@ export class Agent implements AsyncDisposable {
   readonly screenshots: boolean;
   #model: ModelFns;
   #modelOptions: { fetch?: Fetch; env?: Env };
+  #password: string | null;
 
   /** Wrap an open browser and its first observation. Performs no I/O. */
   constructor(browser: BrowserLike, task: string, page: PageState, init: AgentInit = {}) {
@@ -76,6 +94,7 @@ export class Agent implements AsyncDisposable {
     this.screenshots = Boolean(init.screenshots) || Boolean(this.recordDir);
     this.#model = { choose, fieldText, ...init.model };
     this.#modelOptions = { fetch: init.fetch, env: init.env };
+    this.#password = init.password || (init.env ? init.env.JEV_PASSWORD : readPassword()) || null;
     this.state = {
       goal: plan.join("\n"),
       page,
@@ -146,7 +165,9 @@ export class Agent implements AsyncDisposable {
       }
       if (state.decisions.length >= MAX_STEPS * 2) throw new JevError("Reached the demo's model-call budget");
       const page = state.page;
-      const decision = await this.#model.choose(page, state.goal, state.history, this.#modelOptions);
+      // Without a password, password fields are not offered: no model may supply one.
+      const offered = this.#password ? page : { ...page, actions: page.actions.filter((a) => !("secret" in a)) };
+      const decision = await this.#model.choose(offered, state.goal, state.history, this.#modelOptions);
       state.decision = decision;
       state.decisions.push({ ...decision, fingerprint: page.fingerprint, elapsed_ms: this.#elapsed() });
       state.status = "predicted";
@@ -175,7 +196,11 @@ export class Agent implements AsyncDisposable {
       }
       let text: string | null = null;
       let helper: TextHelperInfo | null = null;
-      if (action.kind === "fill") {
+      const secret = action.kind === "fill" && Boolean(action.secret);
+      if (secret) {
+        if (!this.#password) throw new JevError("Password fields need JEV_PASSWORD; nothing typed.");
+        text = this.#password;
+      } else if (action.kind === "fill") {
         if (!(await browser.fresh(page))) throw new StalePage("Page changed before text generation. Choose again.");
         const context = fieldContext(state.goal, action, page, state.history);
         const key = canonicalJson(context);
@@ -202,7 +227,7 @@ export class Agent implements AsyncDisposable {
         probability: decision.probabilities[selected],
         confidence: decision.confidence,
         latency_ms: decision.latency_ms,
-        text,
+        text: secret ? MASK : text,
         text_helper: helper ? helper.model : null,
         text_latency_ms: helper ? helper.latency_ms : 0,
         operation: decision.operation,
