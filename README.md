@@ -1,85 +1,49 @@
-# Ultrafast ⚡
+# Ultrafast
 
-**A browser agent with a dynamic, indexed action space.**
+A TypeScript/Deno port of the original [jev-ultrafast](https://github.com/browser-use/jev-ultrafast), maintained by Syncretic.
 
-Give it one goal. [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks an operation and an element. A small LLM writes text only when the operation is `TYPE_TEXT`; passwords are typed by code, never by a model.
+Ultrafast is a browser agent that takes one natural-language goal and works through a real page until the goal is met or it's stuck. We use it to drive our own apps from scripts, tests and coding agents without writing selectors.
 
-**Zürich → London on Google Flights in 7.1 seconds.** One natural-language goal, actual text generation, and loading waits included.
+## How it works
 
-Measured with the prior Python implementation; see [Evidence and limits](#evidence-and-limits).
+Each step runs the same loop:
 
-**Concepts.** *Jev* is TypeSafe's choice model: it only picks an operation and a target from the offered options, never strings. *Ultrafast* is the browser agent around it (this repo, `jev-ultrafast`); its runs, steps and errors are Ultrafast's, not Jev's. The *text helper* is the small LLM that writes TYPE_TEXT values. A *secret* is a password supplied by code, typed directly and never shown to any model.
+1. **Observe.** One browser call reads the visible controls (buttons, links, fields, dropdowns) into a numbered element table, along with the visible page text.
+2. **Choose.** One request to [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks an operation (`CLICK`, `TYPE_TEXT`, `SELECT`, `SCROLL_UP`, `SCROLL_DOWN`, `WAIT`, `DONE` or `BLOCKED`) and its target from that table.
+3. **Write text, if needed.** For `TYPE_TEXT`, a small text model writes the value from the goal. Password fields get a password supplied by code instead.
+4. **Execute.** Code checks that the page hasn't changed, then clicks or types on the chosen element. The model never produces selectors, coordinates or code.
 
-[Watch the MP4](docs/demo.mp4) · [Measurements](docs/performance.md) · [Read the loop](src/agent.ts)
+The run ends when Jev chooses `DONE` or `BLOCKED`, or after three actions in a row that change nothing.
 
-## The action space
+**Terms used in this repo**
 
-Every observation produces a new element table:
+- **Jev**: TypeSafe's choice model. It only picks from the offered options and never writes strings.
+- **Ultrafast**: the agent in this repo. Runs, steps and errors belong to Ultrafast, not Jev.
+- **Text helper**: the small model that writes `TYPE_TEXT` values (OpenAI `gpt-6-luna` by default).
+- **Secret**: a password supplied by code, typed directly and never sent to any model.
 
-```text
-[1] button    Change ticket type · Round trip
-[2] combobox  Where from?        · San Francisco
-[3] combobox  Where to?          · empty
-[4] textbox   Departure          · empty
-...
-```
+## Setup
 
-The operations are `CLICK`, `TYPE_TEXT`, `SELECT`, `SCROLL_UP`, `SCROLL_DOWN`, `WAIT`, `DONE`, and `BLOCKED`. Only supported operations and targets are offered.
-
-```text
-                      one TypeSafe request
-                     ┌───────────────────────────┐
-page → element table → operation                 │
-                     │ click_target              │
-                     │ type_text_target          │
-                     │ select_target, if present │
-                     └─────────────┬─────────────┘
-                         use the matching target
-                                   │
-                    CLICK [7] ─────┤──→ browser
-                TYPE_TEXT [3] ─────┘
-                          ↓
-                   small LLM → text → browser
-```
-
-Target questions are speculative. If the operation is `CLICK`, only `click_target` can execute. Two decisions, **one network round trip**. Each target head contains only compatible elements. Native dropdown choices carry an observed element/option index.
-
-There are no site-specific action scripts or prepared field strings in the policy. The Flights example supplies a goal and independently verifies the outcome. The screenshot renderer adds labels afterward; it does not drive the browser.
-
-## Try it
+Requires Deno 2.9+ and Chrome.
 
 ```bash
 git clone https://github.com/syncretic-cc/jev-ultrafast-typescript.git
 cd jev-ultrafast-typescript
-cp .env.example .env
-# Add TYPESAFE_API_KEY and OPENAI_API_KEY.
-deno task demo
+cp .env.example .env   # add TYPESAFE_API_KEY and OPENAI_API_KEY
+deno task demo:chrome
 ```
 
-Requires Deno 2.9+ and Chrome.
+`deno task demo:chrome` starts a separate Chrome with remote debugging (port 9223, its own profile under `artifacts/`), runs the local inspector, and opens it at http://127.0.0.1:8766. The inspector shows the element table, Jev's probabilities and each executed action.
 
-Open **http://127.0.0.1:8766** and click **Start demo → Run automatically**. The inspector shows numbered elements, operation probabilities, target probabilities, and executed actions. **Choose next** pauses before execution.
+## Run a goal
 
-### Connect Chrome
+From this repo:
 
-Ultrafast talks to Chrome through a small built-in DevTools Protocol client; there is nothing else to install. Its discovery order follows [Browser Harness](https://github.com/browser-use/browser-harness):
+```bash
+BU_CDP_URL=http://127.0.0.1:9223 deno task example --url http://localhost:3100 --goal "Open the settings page"
+```
 
-1. `BU_CDP_WS`: a full `ws://…/devtools/browser/…` URL.
-2. `BU_CDP_URL`: an HTTP endpoint such as `http://127.0.0.1:9222`, for a dedicated automation Chrome started with `--remote-debugging-port=9222 --user-data-dir=<separate-profile>`. `deno task demo:chrome` starts one on port 9223 with a profile under `artifacts/` and runs the demo against it.
-3. Your everyday Chrome: open `chrome://inspect/#remote-debugging` and allow remote debugging. Ultrafast finds the `DevToolsActivePort` file in the usual Chrome, Chromium, Edge, and Brave profile folders. Accept Chrome's *Allow remote debugging* prompt when it appears.
-4. Ports 9222 and 9223 on 127.0.0.1.
-
-Empty variables count as unset. Ultrafast opens its own background tab and closes it at the end; that tab shares the connected Chrome profile, including its cookies and signed-in accounts.
-
-By default the text helper calls OpenAI: `https://api.openai.com/v1/chat/completions` with `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-6-luna`) and `OPENAI_REASONING_EFFORT` (default `none`). TypeSafe still chooses every action.
-
-Set `USE_OPENAI=false` to use an OpenAI-compatible endpoint configured by `TEXT_MODEL_API_KEY`, `TEXT_MODEL_BASE_URL`, `TEXT_MODEL` and `TEXT_MODEL_REASONING`. The recorded demo used this path with OpenRouter and `inception/mercury-2.5`, reasoning disabled; Gemini, GLM, and DeepSeek work the same way.
-
-Password fields are hidden unless a password is supplied with the `password` Agent option or `JEV_PASSWORD`. Ultrafast then lists them with a masked value and types the password itself: it is never sent to TypeSafe or the text helper and appears as `••••••••` in history and the inspector. Keep the password out of the goal.
-
-## Use it from another repo
-
-Ultrafast is distributed on [JSR](https://jsr.io/@syncretic/jev-ultrafast) as `@syncretic/jev-ultrafast`. Add one pinned script to the consuming repo's `package.json`:
+From another repo, add a pinned script that runs the published CLI:
 
 ```json
 "scripts": {
@@ -87,83 +51,39 @@ Ultrafast is distributed on [JSR](https://jsr.io/@syncretic/jev-ultrafast) as `@
 }
 ```
 
-Put `TYPESAFE_API_KEY`, `OPENAI_API_KEY` and, for logins, `JEV_PASSWORD` in that repo's ignored `.env`. Start a dedicated debug Chrome (macOS shown; it uses its own profile):
+```bash
+BU_CDP_URL=http://127.0.0.1:9223 npm run browse -- --url http://localhost:3100 --goal "Sign in with email testing@example.com and the configured password"
+```
+
+The CLI reads `./.env`, prints one line per step, and exits 0 when the run is done or 1 when it's blocked. `--json` prints the whole run as JSON. Start the debug Chrome first; on macOS:
 
 ```bash
 open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.ultrafast-chrome"
 ```
 
-Then run:
-
-```bash
-BU_CDP_URL=http://127.0.0.1:9223 npm run browse -- --url http://localhost:3100 --goal "Sign in with email testing@example.com and the configured password"
-```
-
-It prints one line per step and exits 0 when the run is done, 1 when it is blocked. `--json` prints the final run instead. Agents can call the same command.
-
-## Use the library
+As a library:
 
 ```ts
-import { Agent } from "./src/mod.ts";
+import { Agent } from "jsr:@syncretic/jev-ultrafast@0.2";
 
-await using agent = await Agent.create(
-  "https://www.google.com/travel/flights?hl=en",
-  "Find one-way flights from Zurich to London on September 20, 2026, " +
-    "for one adult in economy. Stop when matching flight options are visible.",
-);
-for await (const state of agent.run()) {
-  console.log(state.elapsed_ms, state.status);
-}
+await using agent = await Agent.create("http://localhost:3100", "Open the settings page");
+for await (const state of agent.run()) console.log(state.status, state.history.at(-1)?.action);
 ```
 
-Run with `deno run --env-file=.env --allow-net --allow-read --allow-env your_script.ts`. `await using` closes the tab when the block ends. The same policy can run a different task:
+## Configuration
 
-```bash
-deno task example \
-  --url https://en.wikipedia.org/wiki/Main_Page \
-  --goal 'Find and open the Wikipedia article about Gödel’s incompleteness theorems.'
-```
+Set these in `.env`. Variables already set in the environment take precedence.
 
-`deno task flights --keep-open` performs the flight search, checks the actual route/date/results, and saves its trace. It does not select or book a flight.
-
-## Why it moves
-
-- **One request per decision cycle.** Operation and target heads share the same observed state.
-- **No screenshots in the default agent loop.** Jev consumes structured state. The inspector opts into screenshots; the video uses a separate continuous screencast.
-- **One browser call per snapshot.** Read visible controls, their names, values, and text atomically. Keep references to the actual DOM nodes.
-- **Validate the selected target.** Clicks check the document, form values, target, and nearby context. Animation alone does not force another prediction. Resolve current geometry and reject covered controls before input.
-- **Wait for useful state.** After typing into a combobox, wait for visible suggestions, capped at 200 ms. Other interactions get at most two animation frames or 50 ms. These reads happen after execution is logged.
-- **Keep hidden tabs rendering.** Focus emulation prevents background animation throttling without switching Chrome's visible tab.
-- **Send visible text.** Offscreen article bodies and footers do not fill the model context.
-- **Reuse an interrupted text request.** A generated value survives a stale-page retry only if the entire text-helper input is unchanged.
-
-Every executed target is resolved from an observed node. The executor rechecks page freshness and click occlusion. Model output never becomes selectors, coordinates, shell commands, or executable JavaScript. Text-helper output must parse as a small JSON object before typing.
-
-## Small enough to read
-
-| File | Job |
+| Variable | Purpose |
 | --- | --- |
-| [agent.ts](src/agent.ts) | The complete loop, text-helper handoff, and password secret |
-| [snapshot.js](src/snapshot.js) | Atomic DOM snapshot, indexed controls, freshness guards |
-| [browser.ts](src/browser.ts) | Tab ownership, current geometry, execution |
-| [cdp.ts](src/cdp.ts) | Chrome DevTools connection and discovery |
-| [model.ts](src/model.ts) | Dynamic operation/target heads and text generation |
-| [questions.ts](src/questions.ts) | Model instructions |
-| [demo.ts](src/demo.ts) | Local inspector |
-| [cli.ts](src/cli.ts) | Command line for other repos |
+| `TYPESAFE_API_KEY` | Required. Jev's choices. |
+| `OPENAI_API_KEY` | Required for typing text. |
+| `OPENAI_MODEL`, `OPENAI_REASONING_EFFORT` | Optional. Default `gpt-6-luna` and `none`. |
+| `USE_OPENAI=false` | Use an OpenAI-compatible endpoint instead, set by `TEXT_MODEL_API_KEY`, `TEXT_MODEL_BASE_URL`, `TEXT_MODEL` and `TEXT_MODEL_REASONING`. |
+| `JEV_PASSWORD` | Optional. Password for password fields. Keep it out of the goal. |
+| `BU_CDP_URL` / `BU_CDP_WS` | Optional. Which Chrome to connect to. Without them, Ultrafast looks for a Chrome with remote debugging enabled. |
 
-## Evidence and limits
-
-> [!NOTE]
-> Every measurement, recording, and source hash below comes from the prior Python implementation (last Python commit [`1231850`](https://github.com/syncretic-cc/jev-ultrafast-typescript/tree/1231850)). They were not re-recorded for this TypeScript port. The raw evidence in [docs/](docs/) is unchanged, so its source hashes name Python files. The committed media ([demo.mp4](docs/demo.mp4), [demo.gif](docs/demo.gif), and [flights-result.png](docs/flights-result.png)) were rendered by the prior Python renderer and have not been re-rendered with `scripts/render_demo.ts`.
-
-The current video is a **7,073 ms** Google Flights run. Timing starts after initial page observation and includes model calls, generated text, browser work, stale decisions, and loading waits. A fresh independent check verifies the one-way setting, Zürich, London, September 20, 2026, and visible flight options. The video plays at 1×, with no opening hold and a 0.5-second final hold.
-
-In six alternating runs with identical models and settings, both versions passed **3/3**. Median task time went from **9.450 s → 7.092 s**, a **25% reduction**; median browser protocol calls went from **1,092 → 101**. This is three repeats of one task on one browser profile, not a general reliability benchmark.
-
-The same policy opened the requested Wikipedia article in **2.798 s** and passed a local hotel search/filter task in **1.896 s**. Runs, failures, Python source hashes, and measurement boundaries are in [performance.md](docs/performance.md).
-
-A `DONE` choice still requires independent outcome verification. The DOM reader handles common HTML and ARIA controls, not the full accessible-name specification. Shadow roots, frames, canvas, uploads, pop-up tabs, nested scrolling, and arbitrary keyboard widgets remain outside this MVP. Owned tabs share the existing Chrome profile.
+Password fields are hidden unless `JEV_PASSWORD` or the `password` Agent option is set. When one is set, the field is shown with a masked value and code types the password; history and the inspector show `••••••••`.
 
 ## Development
 
@@ -171,10 +91,8 @@ A `DONE` choice still requires independent outcome verification. The DOM reader 
 deno task check
 ```
 
-That runs `deno install --frozen`, `deno fmt --check`, `deno lint`, `deno check` (including `src/snapshot.js` and `src/static/app.js`), `deno test --allow-read`, and `deno publish --dry-run`.
+This runs formatting, lint, type checks, the offline tests (no credentials, no paid calls) and a publish dry run. `deno task demo`, `example`, `flights` and `smoke` call the paid model APIs.
 
-Tests are offline and need no credentials. `deno task guards` checks real controls in a local browser without model calls. Live examples and recording scripts make paid API calls. `deno task record artifacts/flights/<new-folder>` captures original browser timestamps; the folder must be new and under `artifacts/`, since tasks may only write there (the same applies to `deno task flights --output` and `deno task measure --output`); `deno task render <recording-folder>` renders that verified run at 1× and crops out the Google account strip (rendering needs `ffmpeg` on `PATH`). Credentials and raw traces stay ignored.
+## License
 
----
-
-[Browser Use](https://github.com/browser-use/browser-use) · [Browser Harness](https://github.com/browser-use/browser-harness) · [TypeSafe speculative fan-out](https://docs.typesafe.ai/patterns/fan-out)
+MIT. See [LICENSE](LICENSE), which keeps the original copyright notice as the license requires.
