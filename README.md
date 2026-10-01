@@ -47,7 +47,7 @@ From another repo, add a pinned script that runs the published CLI:
 
 ```json
 "scripts": {
-  "browse": "deno run -A jsr:@syncretic/jev-ultrafast@0.2/cli"
+  "browse": "deno run -A jsr:@syncretic/jev-ultrafast-typescript@0.2/cli"
 }
 ```
 
@@ -64,7 +64,7 @@ open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$H
 As a library:
 
 ```ts
-import { Agent } from "jsr:@syncretic/jev-ultrafast@0.2";
+import { Agent } from "jsr:@syncretic/jev-ultrafast-typescript@0.2";
 
 await using agent = await Agent.create("http://localhost:3100", "Open the settings page");
 for await (const state of agent.run()) console.log(state.status, state.history.at(-1)?.action);
