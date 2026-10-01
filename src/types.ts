@@ -33,6 +33,8 @@ export interface ElementAction {
   checked?: string;
   selected?: string;
   expanded?: string;
+  /** A password field. Its value is masked; only a code-supplied password is typed into it. */
+  secret?: boolean;
 }
 
 /** A page scroll control. */
@@ -85,6 +87,7 @@ export interface Element {
   checked?: string;
   selected?: string;
   expanded?: string;
+  secret?: boolean;
   index: string;
   label: string;
   operations: Operation[];

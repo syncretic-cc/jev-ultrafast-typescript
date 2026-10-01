@@ -1,7 +1,7 @@
 /** Local-browser freshness/execution regressions. No model calls or external websites. */
 
 import { assert, assertEquals, AssertionError } from "@std/assert";
-import { type Action, Browser, JevError, type PageState } from "../src/mod.ts";
+import { type Action, Browser, type PageState, UltrafastError } from "../src/mod.ts";
 
 const HTML = `<!doctype html><title>Guard checks</title>
 <style>body{margin:30px}button{width:180px;height:50px}#outside{position:absolute;top:3000px}</style>
@@ -77,8 +77,8 @@ async function main(): Promise<void> {
       await browser.act(action, page);
       clicked = true;
     } catch (error) {
-      // StalePage extends JevError; anything else is a real failure.
-      if (!(error instanceof JevError)) throw error;
+      // StalePage extends UltrafastError; anything else is a real failure.
+      if (!(error instanceof UltrafastError)) throw error;
     }
     if (clicked) throw new AssertionError("Covered target was clicked");
     assertEquals(await browser.evaluate("window.clicks"), 1);

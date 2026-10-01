@@ -3,7 +3,7 @@
 import { decodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { Browser } from "./browser.ts";
-import { JevError, StalePage } from "./errors.ts";
+import { StalePage, UltrafastError } from "./errors.ts";
 import { canonicalJson } from "./json.ts";
 import { actionSpace, choose, fieldContext, fieldText } from "./model.ts";
 import { MAX_STEPS } from "./questions.ts";
@@ -36,6 +36,11 @@ export interface AgentInit {
   env?: Env;
   /** Model function overrides. */
   model?: Partial<ModelFns>;
+  /**
+   * Password typed into password fields, instead of `JEV_PASSWORD` from the environment. Code types it directly:
+   * it never reaches a model, the state, the inspector or the history. Without one, password fields are not offered.
+   */
+  password?: string;
 }
 
 /** Options for {@link Agent.create}. */
@@ -46,6 +51,9 @@ export interface AgentOptions extends AgentInit {
   openBrowser?: (url: string) => Promise<BrowserLike>;
 }
 
+/** What the history records instead of a typed password. */
+export const MASK = "••••••••";
+
 /** Generated text awaiting execution, keyed by the canonical JSON of its entire helper input. */
 export interface PendingText {
   key: string;
@@ -53,7 +61,16 @@ export interface PendingText {
   helper: TextHelperInfo;
 }
 
-/** Jev chooses an observed action. Code owns execution. */
+/** `JEV_PASSWORD`, or null when it is unset or env access is not granted. */
+function readPassword(): string | null {
+  try {
+    return Deno.env.get("JEV_PASSWORD") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The Ultrafast agent: Jev chooses an observed action, code owns execution. */
 export class Agent implements AsyncDisposable {
   /** The browser this agent drives. Cast to {@link Browser} for CDP-specific members. */
   readonly browser: BrowserLike;
@@ -67,6 +84,7 @@ export class Agent implements AsyncDisposable {
   readonly screenshots: boolean;
   #model: ModelFns;
   #modelOptions: { fetch?: Fetch; env?: Env };
+  #password: string | null;
 
   /** Wrap an open browser and its first observation. Performs no I/O. */
   constructor(browser: BrowserLike, task: string, page: PageState, init: AgentInit = {}) {
@@ -76,6 +94,7 @@ export class Agent implements AsyncDisposable {
     this.screenshots = Boolean(init.screenshots) || Boolean(this.recordDir);
     this.#model = { choose, fieldText, ...init.model };
     this.#modelOptions = { fetch: init.fetch, env: init.env };
+    this.#password = init.password || (init.env ? init.env.JEV_PASSWORD : readPassword()) || null;
     this.state = {
       goal: plan.join("\n"),
       page,
@@ -95,7 +114,7 @@ export class Agent implements AsyncDisposable {
   /** Open `url`, observe it, and return an agent for one natural-language goal. */
   static async create(url: string, goals: string | readonly string[], opts: AgentOptions = {}): Promise<Agent> {
     const task = typeof goals === "string" ? goals.trim() : goals.join("\n").trim();
-    if (!task) throw new JevError("Supply a task");
+    if (!task) throw new UltrafastError("Supply a task");
     const browser = opts.openBrowser ? await opts.openBrowser(url) : await Browser.open(url, { cdp: opts.cdp });
     const screenshots = Boolean(opts.screenshots) || Boolean(opts.recordDir);
     try {
@@ -142,18 +161,22 @@ export class Agent implements AsyncDisposable {
       if (!(await browser.fresh(state.page))) state.page = await browser.observe({ screenshot: this.screenshots });
       state.decision = null;
       if (state.status === "done" || state.status === "blocked") {
-        throw new JevError("This run has stopped. Start a fresh demo.");
+        throw new UltrafastError("This run has stopped. Start a fresh demo.");
       }
-      if (state.decisions.length >= MAX_STEPS * 2) throw new JevError("Reached the demo's model-call budget");
+      if (state.decisions.length >= MAX_STEPS * 2) throw new UltrafastError("Reached the demo's model-call budget");
       const page = state.page;
-      const decision = await this.#model.choose(page, state.goal, state.history, this.#modelOptions);
+      // Without a password, password fields are not offered: no model may supply one.
+      const offered = this.#password ? page : { ...page, actions: page.actions.filter((a) => !("secret" in a)) };
+      const decision = await this.#model.choose(offered, state.goal, state.history, this.#modelOptions);
       state.decision = decision;
       state.decisions.push({ ...decision, fingerprint: page.fingerprint, elapsed_ms: this.#elapsed() });
       state.status = "predicted";
     } else if (name === "act") {
       const decision = state.decision;
       const page = state.page;
-      if (!decision || body.fingerprint !== page.fingerprint) throw new JevError("Observe and choose before acting");
+      if (!decision || body.fingerprint !== page.fingerprint) {
+        throw new UltrafastError("Observe and choose before acting");
+      }
       // Consume once, before any mutation or model call. A retry cannot double-click.
       state.decision = null;
       const selected = decision.choice;
@@ -168,14 +191,18 @@ export class Agent implements AsyncDisposable {
         return this.snapshot();
       }
       const action = page.actions.find((a) => a.id === selected);
-      if (!action) throw new JevError("Decision does not match an observed action; no action executed.");
+      if (!action) throw new UltrafastError("Decision does not match an observed action; no action executed.");
       if (state.history.length >= MAX_STEPS) {
         state.status = "blocked";
-        throw new JevError(`Stopped at the ${MAX_STEPS}-action demo budget`);
+        throw new UltrafastError(`Stopped at the ${MAX_STEPS}-action demo budget`);
       }
       let text: string | null = null;
       let helper: TextHelperInfo | null = null;
-      if (action.kind === "fill") {
+      const secret = action.kind === "fill" && Boolean(action.secret);
+      if (secret) {
+        if (!this.#password) throw new UltrafastError("Password fields need JEV_PASSWORD; nothing typed.");
+        text = this.#password;
+      } else if (action.kind === "fill") {
         if (!(await browser.fresh(page))) throw new StalePage("Page changed before text generation. Choose again.");
         const context = fieldContext(state.goal, action, page, state.history);
         const key = canonicalJson(context);
@@ -202,7 +229,7 @@ export class Agent implements AsyncDisposable {
         probability: decision.probabilities[selected],
         confidence: decision.confidence,
         latency_ms: decision.latency_ms,
-        text,
+        text: secret ? MASK : text,
         text_helper: helper ? helper.model : null,
         text_latency_ms: helper ? helper.latency_ms : 0,
         operation: decision.operation,
@@ -230,7 +257,7 @@ export class Agent implements AsyncDisposable {
         ? "blocked"
         : "ready";
     } else {
-      throw new JevError("Unknown command");
+      throw new UltrafastError("Unknown command");
     }
     return this.snapshot();
   }

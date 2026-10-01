@@ -1,7 +1,7 @@
 /** TypeSafe makes choices; an optional small OpenAI-compatible model writes field values. */
 
 import { APIConnectionError, APIError, type SystemOneRequest, TypeSafeClient, TypeSafeError } from "@typesafe-ai/sdk";
-import { JevError, ModelError } from "./errors.ts";
+import { ModelError, UltrafastError } from "./errors.ts";
 import { NEXT_ACTION, TARGET, TEXT_VALUE } from "./questions.ts";
 import { pythonJsonDumps } from "./json.ts";
 import type {
@@ -88,7 +88,7 @@ export async function postJson(url: string, key: string, body: unknown, fetchFn?
       try {
         return JSON.parse(text);
       } catch {
-        throw new JevError("Model provider returned invalid JSON; no action executed.");
+        throw new UltrafastError("Model provider returned invalid JSON; no action executed.");
       }
     } finally {
       clearTimeout(timer);
@@ -112,7 +112,7 @@ export function validateChoice(answer: unknown, ids: readonly string[]): ChoiceA
       Math.abs((values as number[]).reduce((a, b) => a + b, 0) - 1) < 0.02 &&
       (probabilities[choice] as number) >= Math.max(...(values as number[])) - 1e-6;
   }
-  if (!valid) throw new JevError(INVALID);
+  if (!valid) throw new UltrafastError(INVALID);
   return answer as unknown as ChoiceAnswer;
 }
 
@@ -133,7 +133,7 @@ export function actionSpace(actions: readonly Action[]): ActionSpace {
       const index = String(elements.length + 1);
       indices.set(node, index);
       const element: Record<string, unknown> = {};
-      for (const k of ["role", "value", "checked", "selected", "expanded"]) {
+      for (const k of ["role", "value", "checked", "selected", "expanded", "secret"]) {
         if (k in action) element[k] = (action as unknown as Record<string, unknown>)[k];
       }
       Object.assign(element, { index, label: action.label.split(" → ")[0], operations: [] });
@@ -187,7 +187,7 @@ export async function choose(
         element: `[${index}] ${a.label}`,
         current_value: getOr(a, "current_value", getOr(a, "value", "")),
       };
-      for (const k of ["role", "checked", "selected", "expanded"]) {
+      for (const k of ["role", "checked", "selected", "expanded", "secret"]) {
         if (k in a) entry[k] = (a as unknown as Record<string, unknown>)[k];
       }
       criteria[index] = entry;
@@ -213,7 +213,7 @@ export async function choose(
     questions,
   };
   const apiKey = readEnv(opts, "TYPESAFE_API_KEY");
-  if (!apiKey) throw new JevError("Choosing needs TYPESAFE_API_KEY; no action executed.");
+  if (!apiKey) throw new UltrafastError("Choosing needs TYPESAFE_API_KEY; no action executed.");
   const started = performance.now();
   let result: unknown;
   try {
@@ -242,10 +242,10 @@ export async function choose(
       throw new ModelError(`Model provider returned HTTP ${error.status}; no action executed.`);
     }
     if (error instanceof APIConnectionError) throw new ModelError("Model connection failed; no action executed.");
-    if (error instanceof TypeSafeError) throw new JevError(error.message);
+    if (error instanceof TypeSafeError) throw new UltrafastError(error.message);
     throw error;
   }
-  if (!isObject(result) || !isObject(result.answers)) throw new JevError(INVALID);
+  if (!isObject(result) || !isObject(result.answers)) throw new UltrafastError(INVALID);
   const answers = result.answers;
   const operationAnswer = validateChoice(getOr(answers, "operation", {}), Object.keys(operations));
   const operation = operationAnswer.choice;
@@ -315,7 +315,7 @@ export async function fieldText(
   const keyName = openai ? "OPENAI_API_KEY" : "TEXT_MODEL_API_KEY";
   const key = readEnv(opts, keyName);
   if (!key) {
-    throw new JevError(`TYPE_TEXT needs ${keyName}; no text is hardcoded or guessed by the executor.`);
+    throw new UltrafastError(`TYPE_TEXT needs ${keyName}; no text is hardcoded or guessed by the executor.`);
   }
   const model = textModel(opts);
   let base: string;
@@ -359,7 +359,7 @@ export async function fieldText(
     if (keys.length !== 1 || keys[0] !== "text" || typeof value !== "string" || !value.trim()) throw new Error();
     if ([...value].length > 2000) throw new Error();
   } catch {
-    throw new JevError("Text helper returned no valid field value; nothing typed.");
+    throw new UltrafastError("Text helper returned no valid field value; nothing typed.");
   }
   return [value as string, {
     model,

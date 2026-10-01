@@ -1,7 +1,7 @@
 // Offline contracts for TypeSafe choices and the text helper. Every request goes to an injected fake fetch.
 import { assert, assertEquals, assertInstanceOf, assertRejects, assertStringIncludes, assertThrows } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
-import { JevError, ModelError } from "../src/mod.ts";
+import { ModelError, UltrafastError } from "../src/mod.ts";
 import { actionSpace, choose, fieldContext, fieldText, postJson, validateChoice } from "../src/model.ts";
 import { canonicalJson, pythonJsonDumps } from "../src/json.ts";
 import { choice, fakeFetch, page } from "./_helpers.ts";
@@ -41,7 +41,7 @@ for (const [mutation, mutate] of Object.entries(MUTATIONS)) {
   Deno.test(`invalid choice is rejected: ${mutation}`, () => {
     const a: Json = choice(["a", "b"], "a");
     mutate(a);
-    assertThrows(() => validateChoice(a, ["a", "b"]), JevError, "Invalid TypeSafe");
+    assertThrows(() => validateChoice(a, ["a", "b"]), UltrafastError, "Invalid TypeSafe");
   });
 }
 
@@ -53,12 +53,12 @@ Deno.test("valid choice is accepted", () => {
 Deno.test("boolean probabilities and confidence are rejected", () => {
   assertThrows(
     () => validateChoice({ choice: "a", confidence: 1, probabilities: { a: true, b: false } }, ["a", "b"]),
-    JevError,
+    UltrafastError,
     "Invalid TypeSafe",
   );
   assertThrows(
     () => validateChoice({ choice: "a", confidence: true, probabilities: { a: 1, b: 0 } }, ["a", "b"]),
-    JevError,
+    UltrafastError,
     "Invalid TypeSafe",
   );
 });
@@ -109,7 +109,7 @@ Deno.test("click cannot consume a text target", async () => {
     })
   );
   const p = await page();
-  await assertRejects(() => choose(p, "Find a book", [], { fetch, env: TYPESAFE }), JevError, "Invalid TypeSafe");
+  await assertRejects(() => choose(p, "Find a book", [], { fetch, env: TYPESAFE }), UltrafastError, "Invalid TypeSafe");
 });
 
 Deno.test("target head receives control state and full next-step rules", async () => {
@@ -148,7 +148,7 @@ Deno.test("choose without TYPESAFE_API_KEY stops before any request", async () =
   const fetch = fakeFetch(() => Response.json({}));
   await assertRejects(
     async () => await choose(await page(), "Find a book", [], { fetch, env: { TYPESAFE_API_KEY: "" } }),
-    JevError,
+    UltrafastError,
     "TYPESAFE_API_KEY",
   );
   assertEquals(fetch.calls.length, 0);
@@ -210,7 +210,7 @@ Deno.test("missing text credential stops before guessing", async () => {
   const fetch = fakeFetch(() => textReply('{"text":"Zurich"}'));
   await assertRejects(
     () => fieldText({ goal: 'Enter "Zurich"' } as never, { fetch, env: {} }),
-    JevError,
+    UltrafastError,
     "TEXT_MODEL_API_KEY",
   );
   assertEquals(fetch.calls.length, 0);
@@ -221,7 +221,7 @@ for (const content of ["Thinking: Zurich", '{"text":null}', '{"text":"Zurich","e
     const fetch = fakeFetch(() => textReply(content));
     await assertRejects(
       () => fieldText({ goal: "Find a flight" } as never, { fetch, env: TEXT }),
-      JevError,
+      UltrafastError,
       "nothing typed",
     );
   });
@@ -254,7 +254,7 @@ Deno.test("OpenAI mode without OPENAI_API_KEY stops before any request", async (
   const fetch = fakeFetch(() => textReply('{"text":"Zurich"}'));
   await assertRejects(
     () => fieldText({ goal: "Fly" }, { fetch, env: { USE_OPENAI: "true", TEXT_MODEL_API_KEY: "other" } }),
-    JevError,
+    UltrafastError,
     "OPENAI_API_KEY",
   );
   assertEquals(fetch.calls.length, 0);
@@ -303,7 +303,7 @@ Deno.test("postJson does not retry other errors", async () => {
   );
   assertEquals(offline.calls.length, 1);
   const garbage = fakeFetch(() => new Response("not json", { status: 200 }));
-  await assertRejects(() => postJson("https://model.test/x", "key", {}, garbage), JevError, "invalid JSON");
+  await assertRejects(() => postJson("https://model.test/x", "key", {}, garbage), UltrafastError, "invalid JSON");
 });
 
 // --- canonicalJson ----------------------------------------------------------------------------------------------

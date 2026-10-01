@@ -1,7 +1,7 @@
-/** Errors raised by the agent. Every expected failure is a {@link JevError}. */
+/** Errors raised by the agent. Every expected failure is an {@link UltrafastError}. */
 
 /** An expected, user-facing failure. The demo reports these as HTTP 400. */
-export class JevError extends Error {
+export class UltrafastError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
     super(message, options);
     this.name = new.target.name;
@@ -9,10 +9,10 @@ export class JevError extends Error {
 }
 
 /** A decision no longer refers to the observed page. */
-export class StalePage extends JevError {}
+export class StalePage extends UltrafastError {}
 
 /** Chrome DevTools returned an error, or the connection failed. */
-export class CdpError extends JevError {
+export class CdpError extends UltrafastError {
   /** The CDP error code, when Chrome reported one. */
   readonly code?: number;
   /** The CDP method that failed, when known. */
@@ -26,7 +26,7 @@ export class CdpError extends JevError {
 }
 
 /** A CDP command did not answer in time. It is never resent. */
-export class CdpTimeout extends JevError {}
+export class CdpTimeout extends UltrafastError {}
 
 /** A model provider failed; no action was executed. */
-export class ModelError extends JevError {}
+export class ModelError extends UltrafastError {}

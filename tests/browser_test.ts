@@ -8,7 +8,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
-import { Browser, browserOperation, CdpError, CdpTimeout, fingerprint, JevError, StalePage } from "../src/mod.ts";
+import { Browser, browserOperation, CdpError, CdpTimeout, fingerprint, StalePage, UltrafastError } from "../src/mod.ts";
 import type { Action, PageState } from "../src/mod.ts";
 import { FakeCdp, page } from "./_helpers.ts";
 
@@ -45,7 +45,7 @@ for (const [name, response] of Object.entries(INTERRUPTED)) {
     const cdp = new FakeCdp(() => response);
     const action = { id: "e1", kind: "select", node: 1, value: "Design" } as unknown as Action;
     const error = await browserOperation({ operation: "act", session: "test", action }, cdp).catch((e) => e);
-    assertInstanceOf(error, JevError);
+    assertInstanceOf(error, UltrafastError);
     assert(!(error instanceof StalePage), "an interrupted dropdown must not look retryable");
     assertStringIncludes(error.message, "Dropdown execution");
     assertEquals(cdp.calls.length, 1);
